@@ -10,6 +10,61 @@
 #include "Core/PowerPC/Interpreter/Interpreter_FPUtils.h"
 #include "Core/PowerPC/PowerPC.h"
 
+// Instructions which move data without performing operations round a bit weirdly
+// Specifically they rounding the mantissa to be like that of a 32-bit float,
+// going as far as to focus on the rounding mode, but never actually care about
+// making sure the exponent becomes 32-bit
+// Either this, or they'll truncate the mantissa down, which will always happen to
+// PS1 OR PS0 in ps_rsqrte
+inline u64 TruncMantissaBits(u64 bits)
+{
+  // Truncation can be done by simply cutting off the mantissa bits that don't
+  // exist in a single precision float
+  u64 remove_bits = Common::DOUBLE_FRAC_WIDTH - Common::FLOAT_FRAC_WIDTH;
+  u64 remove_mask = (1 << remove_bits) - 1;
+  return bits & ~remove_mask;
+}
+
+inline double TruncMantissa(double value)
+{
+  u64 bits = std::bit_cast<u64>(value);
+  u64 trunc_bits = TruncMantissaBits(bits);
+  return std::bit_cast<double>(trunc_bits);
+}
+
+inline u64 RoundMantissaBits(u64 bits)
+{
+  // Checking if the value is non-finite
+  if ((bits & Common::DOUBLE_EXP) == Common::DOUBLE_EXP)
+  {
+    // For infinite and NaN values, the mantissa is simply truncated
+    return TruncMantissaBits(bits);
+  }
+
+  const u64 replacement_exp = 0x4000000000000000ull;
+
+  // To round only the mantissa, we assume the CPU can change the rounding mode,
+  // create new double with an exponent that won't cause issues, round to a single,
+  // and convert back to a double while restoring the original exponent again!
+  // The removing the exponent is done via subtraction instead of bitwise
+  // operations due to the possibility that the rounding will cause an overflow
+  // into the exponent
+  u64 resized_bits = (bits & Common::DOUBLE_FRAC) | replacement_exp;
+
+  float rounded_float = static_cast<float>(std::bit_cast<double>(resized_bits));
+  double extended_float = static_cast<double>(rounded_float);
+  u64 rounded_bits = std::bit_cast<u64>(extended_float);
+
+  u64 orig_hi_bits = bits & (Common::DOUBLE_SIGN | Common::DOUBLE_EXP);
+  rounded_bits = (rounded_bits - replacement_exp) | orig_hi_bits;
+
+  return rounded_bits;
+}
+
+inline double RoundMantissa(double value)
+{
+  // The double version of the function just converts to and from bits again
+  // This would be a necessary step anyways, so it just simplifies code
   u64 bits = std::bit_cast<u64>(value);
   u64 rounded_bits = RoundMantissaBits(bits);
   return std::bit_cast<double>(rounded_bits);
