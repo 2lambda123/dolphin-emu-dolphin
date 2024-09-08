@@ -10,6 +10,11 @@
 #include "Core/PowerPC/Interpreter/Interpreter_FPUtils.h"
 #include "Core/PowerPC/PowerPC.h"
 
+  u64 bits = std::bit_cast<u64>(value);
+  u64 rounded_bits = RoundMantissaBits(bits);
+  return std::bit_cast<double>(rounded_bits);
+}
+
 // These "binary instructions" do not alter FPSCR.
 void Interpreter::ps_sel(Interpreter& interpreter, UGeckoInstruction inst)
 {
@@ -18,8 +23,9 @@ void Interpreter::ps_sel(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& b = ppc_state.ps[inst.FB];
   const auto& c = ppc_state.ps[inst.FC];
 
-  ppc_state.ps[inst.FD].SetBoth(a.PS0AsDouble() >= -0.0 ? c.PS0AsDouble() : b.PS0AsDouble(),
-                                a.PS1AsDouble() >= -0.0 ? c.PS1AsDouble() : b.PS1AsDouble());
+  double ps0 = a.PS0AsDouble() >= -0.0 ? c.PS0AsDouble() : b.PS0AsDouble();
+  double ps1 = a.PS1AsDouble() >= -0.0 ? c.PS1AsDouble() : b.PS1AsDouble();
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(ps0), TruncMantissa(ps1));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -30,8 +36,9 @@ void Interpreter::ps_neg(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(b.PS0AsU64() ^ (UINT64_C(1) << 63),
-                                b.PS1AsU64() ^ (UINT64_C(1) << 63));
+  double ps0 = b.PS0AsU64() ^ (UINT64_C(1) << 63);
+  double ps1 = b.PS1AsU64() ^ (UINT64_C(1) << 63);
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncMantissaBits(ps1));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -51,8 +58,9 @@ void Interpreter::ps_nabs(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(b.PS0AsU64() | (UINT64_C(1) << 63),
-                                b.PS1AsU64() | (UINT64_C(1) << 63));
+  double ps0 = b.PS0AsU64() | (UINT64_C(1) << 63);
+  double ps1 = b.PS1AsU64() | (UINT64_C(1) << 63);
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncMantissaBits(ps1));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -63,8 +71,9 @@ void Interpreter::ps_abs(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(b.PS0AsU64() & ~(UINT64_C(1) << 63),
-                                b.PS1AsU64() & ~(UINT64_C(1) << 63));
+  double ps0 = b.PS0AsU64() & ~(UINT64_C(1) << 63);
+  double ps1 = b.PS1AsU64() & ~(UINT64_C(1) << 63);
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncMantissaBits(ps1));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -77,7 +86,7 @@ void Interpreter::ps_merge00(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& a = ppc_state.ps[inst.FA];
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(a.PS0AsDouble(), b.PS0AsDouble());
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(a.PS0AsDouble()), TruncMantissa(b.PS0AsDouble()));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -89,7 +98,7 @@ void Interpreter::ps_merge01(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& a = ppc_state.ps[inst.FA];
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(a.PS0AsDouble(), b.PS1AsDouble());
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(a.PS0AsDouble()), TruncMantissa(b.PS1AsDouble()));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -101,7 +110,7 @@ void Interpreter::ps_merge10(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& a = ppc_state.ps[inst.FA];
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(a.PS1AsDouble(), b.PS0AsDouble());
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(a.PS1AsDouble()), TruncMantissa(b.PS0AsDouble()));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -113,7 +122,7 @@ void Interpreter::ps_merge11(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& a = ppc_state.ps[inst.FA];
   const auto& b = ppc_state.ps[inst.FB];
 
-  ppc_state.ps[inst.FD].SetBoth(a.PS1AsDouble(), b.PS1AsDouble());
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(a.PS1AsDouble()), TruncMantissa(b.PS1AsDouble()));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -191,8 +200,9 @@ void Interpreter::ps_rsqrte(Interpreter& interpreter, UGeckoInstruction inst)
   if (Common::IsSNAN(ps0) || Common::IsSNAN(ps1))
     SetFPException(ppc_state, FPSCR_VXSNAN);
 
-  const float dst_ps0 = ForceSingle(ppc_state.fpscr, Common::ApproximateReciprocalSquareRoot(ps0));
-  const float dst_ps1 = ForceSingle(ppc_state.fpscr, Common::ApproximateReciprocalSquareRoot(ps1));
+  // For some reason ps0 is also truncated for this operation rather than rounded
+  const double dst_ps0 = TruncMantissa(Common::ApproximateReciprocalSquareRoot(ps0));
+  const double dst_ps1 = TruncMantissa(Common::ApproximateReciprocalSquareRoot(ps1));
 
   ppc_state.ps[inst.FD].SetBoth(dst_ps0, dst_ps1);
   ppc_state.UpdateFPRFSingle(dst_ps0);
@@ -359,7 +369,7 @@ void Interpreter::ps_sum0(Interpreter& interpreter, UGeckoInstruction inst)
 
   const float ps0 =
       ForceSingle(ppc_state.fpscr, NI_add(ppc_state, a.PS0AsDouble(), b.PS1AsDouble()).value);
-  const float ps1 = ForceSingle(ppc_state.fpscr, c.PS1AsDouble());
+  const double ps1 = TruncMantissa(c.PS1AsDouble());
 
   ppc_state.ps[inst.FD].SetBoth(ps0, ps1);
   ppc_state.UpdateFPRFSingle(ps0);
@@ -375,7 +385,7 @@ void Interpreter::ps_sum1(Interpreter& interpreter, UGeckoInstruction inst)
   const auto& b = ppc_state.ps[inst.FB];
   const auto& c = ppc_state.ps[inst.FC];
 
-  const float ps0 = ForceSingle(ppc_state.fpscr, c.PS0AsDouble());
+  const double ps0 = RoundMantissa(c.PS0AsDouble());
   const float ps1 =
       ForceSingle(ppc_state.fpscr, NI_add(ppc_state, a.PS0AsDouble(), b.PS1AsDouble()).value);
 
