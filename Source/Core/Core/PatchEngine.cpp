@@ -198,7 +198,7 @@ void LoadPatches()
   else
   {
     Gecko::SetActiveCodes(Gecko::LoadCodes(globalIni, localIni, sconfig.GetGameID()));
-    ActionReplay::LoadAndApplyCodes(globalIni, localIni);
+    ActionReplay::LoadAndApplyCodes(globalIni, localIni, sconfig.GetGameID());
   }
 }
 

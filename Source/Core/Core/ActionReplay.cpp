@@ -39,6 +39,7 @@
 #include "Common/MsgHandler.h"
 
 #include "Core/ARDecrypt.h"
+#include "Core/AchievementManager.h"
 #include "Core/CheatCodes.h"
 #include "Core/Config/MainSettings.h"
 #include "Core/PowerPC/MMU.h"
@@ -169,13 +170,15 @@ void AddCode(ARCode code)
   }
 }
 
-void LoadAndApplyCodes(const Common::IniFile& global_ini, const Common::IniFile& local_ini)
+void LoadAndApplyCodes(const Common::IniFile& global_ini, const Common::IniFile& local_ini,
+                       const std::string& game_id)
 {
-  ApplyCodes(LoadCodes(global_ini, local_ini));
+  ApplyCodes(LoadCodes(global_ini, local_ini, game_id));
 }
 
 // Parses the Action Replay section of a game ini file.
-std::vector<ARCode> LoadCodes(const Common::IniFile& global_ini, const Common::IniFile& local_ini)
+std::vector<ARCode> LoadCodes(const Common::IniFile& global_ini, const Common::IniFile& local_ini,
+                              const std::string& game_id)
 {
   std::vector<ARCode> codes;
 
@@ -245,6 +248,13 @@ std::vector<ARCode> LoadCodes(const Common::IniFile& global_ini, const Common::I
         code.default_enabled = code.enabled;
     }
   }
+
+#ifdef USE_RETRO_ACHIEVEMENTS
+  {
+    std::lock_guard lg{AchievementManager::GetInstance().GetLock()};
+    AchievementManager::GetInstance().FilterApprovedARCodes(codes, game_id);
+  }
+#endif  // USE_RETRO_ACHIEVEMENTS
 
   return codes;
 }

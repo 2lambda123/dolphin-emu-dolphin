@@ -2119,7 +2119,7 @@ bool NetPlayServer::SyncCodes()
   {
     // Create an AR Code Vector with just the active codes
     std::vector<ActionReplay::ARCode> s_active_codes =
-        ActionReplay::ApplyAndReturnCodes(ActionReplay::LoadCodes(globalIni, localIni));
+        ActionReplay::ApplyAndReturnCodes(ActionReplay::LoadCodes(globalIni, localIni, game_id));
 
     // Determine Codelist Size
     u16 codelines = 0;
