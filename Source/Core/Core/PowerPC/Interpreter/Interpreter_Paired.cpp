@@ -20,8 +20,8 @@ inline u64 TruncateMantissaBits(u64 bits)
 {
   // Truncation can be done by simply cutting off the mantissa bits that don't
   // exist in a single precision float
-  u64 remove_bits = Common::DOUBLE_FRAC_WIDTH - Common::FLOAT_FRAC_WIDTH;
-  u64 remove_mask = (1 << remove_bits) - 1;
+  constexpr u64 remove_bits = Common::DOUBLE_FRAC_WIDTH - Common::FLOAT_FRAC_WIDTH;
+  constexpr u64 remove_mask = (1 << remove_bits) - 1;
   return bits & ~remove_mask;
 }
 
