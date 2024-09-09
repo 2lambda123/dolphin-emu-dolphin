@@ -25,7 +25,7 @@ inline u64 TruncateMantissaBits(u64 bits)
   return bits & ~remove_mask;
 }
 
-inline double TruncMantissa(double value)
+inline double TruncateMantissa(double value)
 {
   u64 bits = std::bit_cast<u64>(value);
   u64 trunc_bits = TruncMantissaBits(bits);
