@@ -16,7 +16,7 @@
 // making sure the exponent becomes 32-bit
 // Either this, or they'll truncate the mantissa down, which will always happen to
 // PS1 OR PS0 in ps_rsqrte
-inline u64 TruncMantissaBits(u64 bits)
+inline u64 TruncateMantissaBits(u64 bits)
 {
   // Truncation can be done by simply cutting off the mantissa bits that don't
   // exist in a single precision float
