@@ -49,14 +49,14 @@ inline u64 RoundMantissaBits(u64 bits)
   // The removing the exponent is done via subtraction instead of bitwise
   // operations due to the possibility that the rounding will cause an overflow
   // into the exponent
-  u64 resized_bits = (bits & Common::DOUBLE_FRAC) | replacement_exp;
+  u64 resized_bits = (bits & (Common::DOUBLE_FRAC | Common::DOUBLE_SIGN)) | replacement_exp;
 
   float rounded_float = static_cast<float>(std::bit_cast<double>(resized_bits));
   double extended_float = static_cast<double>(rounded_float);
   u64 rounded_bits = std::bit_cast<u64>(extended_float);
 
-  u64 orig_hi_bits = bits & (Common::DOUBLE_SIGN | Common::DOUBLE_EXP);
-  rounded_bits = (rounded_bits - replacement_exp) | orig_hi_bits;
+  u64 orig_exp_bits = bits & Common::DOUBLE_EXP;
+  rounded_bits = (rounded_bits - replacement_exp) | orig_exp_bits;
 
   return rounded_bits;
 }
@@ -91,8 +91,8 @@ void Interpreter::ps_neg(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  double ps0 = b.PS0AsU64() ^ (UINT64_C(1) << 63);
-  double ps1 = b.PS1AsU64() ^ (UINT64_C(1) << 63);
+  u64 ps0 = b.PS0AsU64() ^ (UINT64_C(1) << 63);
+  u64 ps1 = b.PS1AsU64() ^ (UINT64_C(1) << 63);
   ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncateMantissaBits(ps1));
 
   if (inst.Rc)
@@ -102,7 +102,9 @@ void Interpreter::ps_neg(Interpreter& interpreter, UGeckoInstruction inst)
 void Interpreter::ps_mr(Interpreter& interpreter, UGeckoInstruction inst)
 {
   auto& ppc_state = interpreter.m_ppc_state;
-  ppc_state.ps[inst.FD] = ppc_state.ps[inst.FB];
+  const auto& b = ppc_state.ps[inst.FB];
+
+  ppc_state.ps[inst.FD].SetBoth(RoundMantissa(b.PS0AsDouble()), TruncateMantissa(b.PS1AsDouble()));
 
   if (inst.Rc)
     ppc_state.UpdateCR1();
@@ -113,8 +115,8 @@ void Interpreter::ps_nabs(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  double ps0 = b.PS0AsU64() | (UINT64_C(1) << 63);
-  double ps1 = b.PS1AsU64() | (UINT64_C(1) << 63);
+  u64 ps0 = b.PS0AsU64() | (UINT64_C(1) << 63);
+  u64 ps1 = b.PS1AsU64() | (UINT64_C(1) << 63);
   ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncateMantissaBits(ps1));
 
   if (inst.Rc)
@@ -126,8 +128,8 @@ void Interpreter::ps_abs(Interpreter& interpreter, UGeckoInstruction inst)
   auto& ppc_state = interpreter.m_ppc_state;
   const auto& b = ppc_state.ps[inst.FB];
 
-  double ps0 = b.PS0AsU64() & ~(UINT64_C(1) << 63);
-  double ps1 = b.PS1AsU64() & ~(UINT64_C(1) << 63);
+  u64 ps0 = b.PS0AsU64() & ~(UINT64_C(1) << 63);
+  u64 ps1 = b.PS1AsU64() & ~(UINT64_C(1) << 63);
   ppc_state.ps[inst.FD].SetBoth(RoundMantissaBits(ps0), TruncateMantissaBits(ps1));
 
   if (inst.Rc)
