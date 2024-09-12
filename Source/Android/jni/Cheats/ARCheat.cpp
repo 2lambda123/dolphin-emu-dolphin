@@ -145,7 +145,7 @@ Java_org_dolphinemu_dolphinemu_features_cheats_model_ARCheat_loadCodes(JNIEnv* e
   const Common::IniFile game_ini_default = SConfig::LoadDefaultGameIni(game_id, revision);
 
   const std::vector<ActionReplay::ARCode> codes =
-      ActionReplay::LoadCodes(game_ini_default, game_ini_local);
+      ActionReplay::LoadCodes(game_ini_default, game_ini_local, game_id);
 
   return VectorToJObjectArray(env, codes, IDCache::GetARCheatClass(), ARCheatToJava);
 }

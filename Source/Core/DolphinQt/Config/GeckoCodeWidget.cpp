@@ -264,7 +264,7 @@ void GeckoCodeWidget::LoadCodes()
 
     const Common::IniFile game_ini_default =
         SConfig::LoadDefaultGameIni(m_game_id, m_game_revision);
-    m_gecko_codes = Gecko::LoadCodes(game_ini_default, game_ini_local);
+    m_gecko_codes = Gecko::LoadCodes(game_ini_default, game_ini_local, m_game_id);
   }
 
   m_code_list->setEnabled(!m_game_id.empty());
