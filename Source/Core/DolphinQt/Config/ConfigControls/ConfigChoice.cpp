@@ -3,34 +3,79 @@
 
 #include "DolphinQt/Config/ConfigControls/ConfigChoice.h"
 
+#include <QMouseEvent>
 #include <QSignalBlocker>
 
 #include "Common/Config/Config.h"
 
 #include "DolphinQt/Settings.h"
 
-ConfigChoice::ConfigChoice(const QStringList& options, const Config::Info<int>& setting)
-    : m_setting(setting)
+ConfigChoice::ConfigChoice(const QStringList& options, const Config::Info<int>& setting,
+                           std::shared_ptr<Config::Layer> layer)
+    : m_setting(setting), m_layer(layer)
 {
-  addItems(options);
-  connect(this, &QComboBox::currentIndexChanged, this, &ConfigChoice::Update);
-  setCurrentIndex(Config::Get(m_setting));
-
-  connect(&Settings::Instance(), &Settings::ConfigChanged, this, [this] {
-    QFont bf = font();
-    bf.setBold(Config::GetActiveLayerForConfig(m_setting) != Config::LayerType::Base);
-    setFont(bf);
-
-    const QSignalBlocker blocker(this);
+  if (m_layer == nullptr)
+  {
+    addItems(options);
     setCurrentIndex(Config::Get(m_setting));
-  });
+
+    connect(this, &QComboBox::currentIndexChanged, this, &ConfigChoice::Update);
+
+    connect(&Settings::Instance(), &Settings::ConfigChanged, this, [this] {
+      QFont bf = font();
+      bf.setBold(Config::GetActiveLayerForConfig(m_setting) != Config::LayerType::Base);
+      setFont(bf);
+
+      const QSignalBlocker blocker(this);
+      setCurrentIndex(Config::Get(m_setting));
+    });
+  }
+  else
+  {
+    addItems(options);
+    setCurrentIndex(m_layer->Get(m_setting));
+
+    connect(this, &QComboBox::currentIndexChanged, this, &ConfigChoice::Update);
+
+    connect(&Settings::Instance(), &Settings::ConfigChanged, this, [this] {
+      QFont bf = font();
+      bf.setBold(m_layer->Exists(m_setting.GetLocation()));
+      setFont(bf);
+
+      const QSignalBlocker blocker(this);
+      setCurrentIndex(m_layer->Get(m_setting));
+    });
+  }
 }
 
 void ConfigChoice::Update(int choice)
 {
+  // This checks if a game ini was loaded for editing without a game running. Its hacky, but avoids
+  // a more intensive method.
+  if (m_layer != nullptr)
+  {
+    m_layer->Set(m_setting, choice);
+    Config::OnConfigChanged();
+    return;
+  }
+
   Config::SetBaseOrCurrent(m_setting, choice);
 }
 
+void ConfigChoice::mousePressEvent(QMouseEvent* event)
+{
+  if (event->button() == Qt::RightButton && m_layer != nullptr)
+  {
+    m_layer->DeleteKey(m_setting.GetLocation());
+    Config::OnConfigChanged();
+  }
+  else
+  {
+    QComboBox::mousePressEvent(event);
+  }
+}
+
+// ConfigStringChoice does not appear to need local game ini logic.
 ConfigStringChoice::ConfigStringChoice(const std::vector<std::string>& options,
                                        const Config::Info<std::string>& setting)
     : m_setting(setting), m_text_is_data(true)

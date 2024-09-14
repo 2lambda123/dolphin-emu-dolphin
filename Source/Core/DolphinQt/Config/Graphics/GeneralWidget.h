@@ -11,6 +11,7 @@ class ConfigBool;
 class ConfigChoice;
 class ConfigInteger;
 class ConfigRadioInt;
+class GameConfigWidget;
 class GraphicsWindow;
 class QCheckBox;
 class QComboBox;
@@ -19,11 +20,18 @@ class QRadioButton;
 class QGridLayout;
 class ToolTipComboBox;
 
+namespace Config
+{
+class Layer;
+}  // namespace Config
+
 class GeneralWidget final : public QWidget
 {
   Q_OBJECT
 public:
   explicit GeneralWidget(GraphicsWindow* parent);
+  GeneralWidget(GameConfigWidget* parent, std::shared_ptr<Config::Layer> layer);
+
 signals:
   void BackendChanged(const QString& backend);
 
@@ -56,4 +64,6 @@ private:
   ConfigBool* m_render_main_window;
   std::array<ConfigRadioInt*, 4> m_shader_compilation_mode{};
   ConfigBool* m_wait_for_shaders;
+
+  std::shared_ptr<Config::Layer> m_game_layer = nullptr;
 };

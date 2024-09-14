@@ -23,6 +23,7 @@
 #include "DolphinQt/Config/ConfigControls/ConfigChoice.h"
 #include "DolphinQt/Config/ConfigControls/ConfigInteger.h"
 #include "DolphinQt/Config/ConfigControls/ConfigRadio.h"
+#include "DolphinQt/Config/GameConfigWidget.h"
 #include "DolphinQt/Config/Graphics/GraphicsWindow.h"
 #include "DolphinQt/Config/ToolTipControls/ToolTipComboBox.h"
 #include "DolphinQt/QtUtils/ModalMessageBox.h"
@@ -48,6 +49,15 @@ GeneralWidget::GeneralWidget(GraphicsWindow* parent)
                           Core::State::Uninitialized);
 }
 
+GeneralWidget::GeneralWidget(GameConfigWidget* parent, std::shared_ptr<Config::Layer> layer)
+    : m_game_layer(layer)
+{
+  CreateWidgets();
+  LoadSettings();
+  ConnectWidgets();
+  AddDescriptions();
+}
+
 void GeneralWidget::CreateWidgets()
 {
   auto* main_layout = new QVBoxLayout;
@@ -59,21 +69,22 @@ void GeneralWidget::CreateWidgets()
   m_backend_combo = new ToolTipComboBox();
   m_aspect_combo = new ConfigChoice({tr("Auto"), tr("Force 16:9"), tr("Force 4:3"),
                                      tr("Stretch to Window"), tr("Custom"), tr("Custom (Stretch)")},
-                                    Config::GFX_ASPECT_RATIO);
+                                    Config::GFX_ASPECT_RATIO, m_game_layer);
   m_custom_aspect_label = new QLabel(tr("Custom Aspect Ratio:"));
   m_custom_aspect_label->setHidden(true);
   constexpr int MAX_CUSTOM_ASPECT_RATIO_RESOLUTION = 10000;
   m_custom_aspect_width = new ConfigInteger(1, MAX_CUSTOM_ASPECT_RATIO_RESOLUTION,
-                                            Config::GFX_CUSTOM_ASPECT_RATIO_WIDTH);
+                                            Config::GFX_CUSTOM_ASPECT_RATIO_WIDTH, m_game_layer);
   m_custom_aspect_width->setEnabled(false);
   m_custom_aspect_width->setHidden(true);
   m_custom_aspect_height = new ConfigInteger(1, MAX_CUSTOM_ASPECT_RATIO_RESOLUTION,
-                                             Config::GFX_CUSTOM_ASPECT_RATIO_HEIGHT);
+                                             Config::GFX_CUSTOM_ASPECT_RATIO_HEIGHT, m_game_layer);
   m_custom_aspect_height->setEnabled(false);
   m_custom_aspect_height->setHidden(true);
   m_adapter_combo = new ToolTipComboBox;
-  m_enable_vsync = new ConfigBool(tr("V-Sync"), Config::GFX_VSYNC);
-  m_enable_fullscreen = new ConfigBool(tr("Start in Fullscreen"), Config::MAIN_FULLSCREEN);
+  m_enable_vsync = new ConfigBool(tr("V-Sync"), Config::GFX_VSYNC, m_game_layer);
+  m_enable_fullscreen =
+      new ConfigBool(tr("Start in Fullscreen"), Config::MAIN_FULLSCREEN, m_game_layer);
 
   m_video_box->setLayout(m_video_layout);
 
@@ -103,11 +114,14 @@ void GeneralWidget::CreateWidgets()
   auto* m_options_box = new QGroupBox(tr("Other"));
   auto* m_options_layout = new QGridLayout();
 
-  m_show_ping = new ConfigBool(tr("Show NetPlay Ping"), Config::GFX_SHOW_NETPLAY_PING);
-  m_autoadjust_window_size =
-      new ConfigBool(tr("Auto-Adjust Window Size"), Config::MAIN_RENDER_WINDOW_AUTOSIZE);
-  m_show_messages = new ConfigBool(tr("Show NetPlay Messages"), Config::GFX_SHOW_NETPLAY_MESSAGES);
-  m_render_main_window = new ConfigBool(tr("Render to Main Window"), Config::MAIN_RENDER_TO_MAIN);
+  m_show_ping =
+      new ConfigBool(tr("Show NetPlay Ping"), Config::GFX_SHOW_NETPLAY_PING, m_game_layer);
+  m_autoadjust_window_size = new ConfigBool(tr("Auto-Adjust Window Size"),
+                                            Config::MAIN_RENDER_WINDOW_AUTOSIZE, m_game_layer);
+  m_show_messages =
+      new ConfigBool(tr("Show NetPlay Messages"), Config::GFX_SHOW_NETPLAY_MESSAGES, m_game_layer);
+  m_render_main_window =
+      new ConfigBool(tr("Render to Main Window"), Config::MAIN_RENDER_TO_MAIN, m_game_layer);
 
   m_options_box->setLayout(m_options_layout);
 
@@ -129,13 +143,13 @@ void GeneralWidget::CreateWidgets()
   }};
   for (size_t i = 0; i < modes.size(); i++)
   {
-    m_shader_compilation_mode[i] =
-        new ConfigRadioInt(tr(modes[i]), Config::GFX_SHADER_COMPILATION_MODE, static_cast<int>(i));
+    m_shader_compilation_mode[i] = new ConfigRadioInt(
+        tr(modes[i]), Config::GFX_SHADER_COMPILATION_MODE, static_cast<int>(i), m_game_layer);
     shader_compilation_layout->addWidget(m_shader_compilation_mode[i], static_cast<int>(i / 2),
                                          static_cast<int>(i % 2));
   }
   m_wait_for_shaders = new ConfigBool(tr("Compile Shaders Before Starting"),
-                                      Config::GFX_WAIT_FOR_SHADERS_BEFORE_STARTING);
+                                      Config::GFX_WAIT_FOR_SHADERS_BEFORE_STARTING, m_game_layer);
   shader_compilation_layout->addWidget(m_wait_for_shaders);
   shader_compilation_box->setLayout(shader_compilation_layout);
 
