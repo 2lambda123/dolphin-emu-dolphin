@@ -11,7 +11,8 @@ class ConfigRadioInt : public ToolTipRadioButton
 {
   Q_OBJECT
 public:
-  ConfigRadioInt(const QString& label, const Config::Info<int>& setting, int value);
+  ConfigRadioInt(const QString& label, const Config::Info<int>& setting, int value,
+                 std::shared_ptr<Config::Layer> target_layer = nullptr);
 
 signals:
   // Since selecting a new radio button deselects the old one, ::toggled will generate two signals.
@@ -21,7 +22,8 @@ signals:
 
 private:
   void Update();
-
+  void mousePressEvent(QMouseEvent* event) override;
   Config::Info<int> m_setting;
+  std::shared_ptr<Config::Layer> m_layer;
   int m_value;
 };

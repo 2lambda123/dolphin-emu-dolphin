@@ -15,12 +15,15 @@ class ConfigChoice : public ToolTipComboBox
 {
   Q_OBJECT
 public:
-  ConfigChoice(const QStringList& options, const Config::Info<int>& setting);
+  ConfigChoice(const QStringList& options, const Config::Info<int>& setting,
+               std::shared_ptr<Config::Layer> layer = nullptr);
 
 private:
   void Update(int choice);
+  void mousePressEvent(QMouseEvent* event) override;
 
   Config::Info<int> m_setting;
+  std::shared_ptr<Config::Layer> m_layer = nullptr;
 };
 
 class ConfigStringChoice : public ToolTipComboBox

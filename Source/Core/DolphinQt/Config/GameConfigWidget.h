@@ -15,6 +15,11 @@ namespace UICommon
 class GameFile;
 }
 
+namespace Config
+{
+class Layer;
+}  // namespace Config
+
 class QCheckBox;
 class QComboBox;
 class QPushButton;
@@ -65,6 +70,7 @@ private:
 
   const UICommon::GameFile& m_game;
   std::string m_game_id;
+  std::shared_ptr<Config::Layer> m_layer;
 
   Common::IniFile m_gameini_local;
   Common::IniFile m_gameini_default;

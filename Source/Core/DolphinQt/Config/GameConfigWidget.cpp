@@ -14,6 +14,8 @@
 #include <QVBoxLayout>
 
 #include "Common/CommonPaths.h"
+#include "Common/Config/Config.h"
+#include "Common/Config/Layer.h"
 #include "Common/FileUtil.h"
 
 #include "Core/ConfigLoaders/GameConfigLoader.h"
@@ -21,6 +23,10 @@
 
 #include "DolphinQt/Config/ConfigControls/ConfigSlider.h"
 #include "DolphinQt/Config/GameConfigEdit.h"
+#include "DolphinQt/Config/Graphics/AdvancedWidget.h"
+#include "DolphinQt/Config/Graphics/EnhancementsWidget.h"
+#include "DolphinQt/Config/Graphics/GeneralWidget.h"
+#include "DolphinQt/Config/Graphics/HacksWidget.h"
 
 #include "UICommon/GameFile.h"
 
@@ -54,6 +60,9 @@ GameConfigWidget::GameConfigWidget(const UICommon::GameFile& game) : m_game(game
 
   m_gameini_local_path =
       QString::fromStdString(File::GetUserPath(D_GAMESETTINGS_IDX) + m_game_id + ".ini");
+
+  m_layer = std::make_shared<Config::Layer>(
+      std::move(ConfigLoaders::GenerateLocalGameConfigLoader(m_game_id, m_game.GetRevision())));
 
   CreateWidgets();
   LoadSettings();
@@ -156,11 +165,10 @@ void GameConfigWidget::CreateWidgets()
   settings_layout->addWidget(core_box);
   settings_layout->addWidget(stereoscopy_box);
 
-  auto* general_layout = new QGridLayout;
-
-  general_layout->addWidget(settings_box, 0, 0, 1, -1);
-
-  general_layout->addWidget(m_refresh_config, 1, 0, 1, -1);
+  auto* general_layout = new QVBoxLayout;
+  general_layout->addWidget(settings_box);
+  general_layout->addWidget(m_refresh_config);
+  general_layout->addStretch();
 
   for (QCheckBox* item :
        {m_enable_dual_core, m_enable_mmu, m_enable_fprf, m_sync_gpu, m_emulate_disc_speed,
@@ -196,10 +204,50 @@ void GameConfigWidget::CreateWidgets()
 
   auto* layout = new QVBoxLayout;
   auto* tab_widget = new QTabWidget;
-
   tab_widget->addTab(general_widget, tr("General"));
   tab_widget->addTab(advanced_widget, tr("Editor"));
 
+  // GFX settings tabs
+  auto* tab_widget2 = new QTabWidget;
+  tab_widget->addTab(tab_widget2, tr("GFX"));
+
+  auto* const advanced_gfx_widget = new AdvancedWidget(this, m_layer);
+  auto* const hacks_widget = new HacksWidget(this, m_layer);
+  auto* const enhancements_widget = new EnhancementsWidget(this, m_layer);
+  auto* const general_gfx_widget = new GeneralWidget(this, m_layer);
+
+  tab_widget2->addTab(general_gfx_widget, tr("General"));
+  tab_widget2->addTab(enhancements_widget, tr("Enhancements"));
+  tab_widget2->addTab(hacks_widget, tr("Hacks"));
+  tab_widget2->addTab(advanced_gfx_widget, tr("Advanced"));
+
+  connect(tab_widget, &QTabWidget::currentChanged, this, [this](int index) {
+    // Update the ini editor after editing the GFX tabs.
+    if (index == 1)
+    {
+      // Layer only auto-saves when it is destroyed.
+      m_layer->Save();
+      m_local_tab->removeTab(0);
+      {
+        auto* edit = new GameConfigEdit(
+            nullptr,
+            QString::fromStdString(File::GetUserPath(D_GAMESETTINGS_IDX) + m_game_id + ".ini"),
+            false);
+        m_local_tab->addTab(edit, QString::fromStdString(m_game_id + ".ini"));
+      }
+    }
+
+    // Update GFX tabs after using ini editor.
+    if (index == 2)
+    {
+      // Load won't clear/reset deleted keys, so everything is wiped before loading.
+      m_layer->DeleteAllKeys();
+      m_layer->Load();
+      Config::OnConfigChanged();
+    }
+  });
+
+  // Note: The advanced tab's length is what oversizes the scrollbar on the other tabs.
   layout->addWidget(tab_widget);
 
   setLayout(layout);
